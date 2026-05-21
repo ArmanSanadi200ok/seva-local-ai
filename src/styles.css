@@ -161,3 +161,30 @@
   background-size: 200% 100%;
   animation: shimmer 2s linear infinite;
 }
+
+/* Splash screen */
+@keyframes splash-enter { from{opacity:1} to{opacity:1} }
+@keyframes splash-exit { from{opacity:1; transform:scale(1)} to{opacity:1; transform:scale(1.02)} }
+@keyframes splash-fade-out { from{opacity:1} to{opacity:0} }
+@keyframes splash-mark-in { from{opacity:1; transform:scale(0.88)} to{opacity:1; transform:scale(1)} }
+@keyframes splash-text-in { from{opacity:1; transform:translateY(6px)} to{opacity:1; transform:translateY(1px)} }
+@keyframes splash-loader-in { from{opacity:1; transform:scale(0.9)} to{opacity:1; transform:scale(1)} }
+@keyframes splash-bounce { 0%,80%,100%{transform:scale(0.6); opacity:0.5} 40%{transform:scale(1); opacity:1} }
+
+.splash-bg {
+  background:
+    radial-gradient(at 20% 10%, oklch(0.7 0.2 280 / 0.35), transparent 50%),
+    radial-gradient(at 80% 0%, oklch(0.75 0.18 200 / 0.3), transparent 55%),
+    radial-gradient(at 50% 100%, oklch(0.7 0.18 162 / 0.25), transparent 55%),
+    var(--color-background);
+}
+.splash-enter { animation: splash-fade-out 0.01s linear backwards; }
+.splash-exit { animation: splash-fade-out 0.35s cubic-bezier(0.4,0,0.2,1) forwards; }
+.splash-mark { animation: splash-mark-in 0.5s cubic-bezier(_x000D
+0.22,1,0.36,1) forwards; }
+.mark-out { animation: splash-mark-in 0.25s cubic-bezier(0.4,0,0.2,1) reverse forwards; }
+.splash-text { animation: splash-text-in 0.5s cubic-bezier(0.22,1,0.36,1) 0.12s both; }
+.text-out { animation: splash-text-in 0.25s cubic-bezier(0.4,0,0.2,1) reverse forwards; }
+.splash-loader { animation: splash-loader-in 0.4s cubic-bezier(0.22,1,0.36,1) 0.28s both; }
+.loader-out { animation: splash-loader-in 0.2s cubic-bezier(0.4,0,0.2,1) reverse forwards; }
+.animate-splash-bounce { animation: splash-bounce 1.4s ease-in-out infinite; }
