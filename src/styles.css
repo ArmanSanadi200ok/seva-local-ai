@@ -180,8 +180,7 @@
 }
 .splash-enter { animation: splash-fade-out 0.01s linear backwards; }
 .splash-exit { animation: splash-fade-out 0.35s cubic-bezier(0.4,0,0.2,1) forwards; }
-.splash-mark { animation: splash-mark-in 0.5s cubic-bezier(_x000D
-0.22,1,0.36,1) forwards; }
+.splash-mark { animation: splash-mark-in 0.5s cubic-bezier(0.22,1,0.36,1) forwards; }
 .mark-out { animation: splash-mark-in 0.25s cubic-bezier(0.4,0,0.2,1) reverse forwards; }
 .splash-text { animation: splash-text-in 0.5s cubic-bezier(0.22,1,0.36,1) 0.12s both; }
 .text-out { animation: splash-text-in 0.25s cubic-bezier(0.4,0,0.2,1) reverse forwards; }
