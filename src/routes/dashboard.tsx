@@ -264,6 +264,7 @@ function Dashboard() {
 
           {/* Sidebar */}
           <aside className="space-y-6">
+            <LiveActivityFeed compact />
             <div className="glass rounded-3xl p-6">
               <div className="flex items-center gap-2">
                 <div className="h-10 w-10 rounded-xl bg-grad-primary grid place-items-center text-white">
