@@ -1,4 +1,4 @@
-import { Sparkles, Instagram, Twitter, MessageCircle } from "lucide-react";
+import { Sparkles, Instagram, Twitter, MessageCircle, Github, Linkedin } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 export function Footer() {
