@@ -153,6 +153,15 @@ function Landing() {
         </div>
       </section>
 
+      {/* LIVE AI DEMO — the headline interactive section */}
+      <LiveAIDemo />
+
+      {/* INDIAN HYPERLOCAL ECOSYSTEM + WhatsApp thread */}
+      <IndianEcosystem />
+
+      {/* TRUST GRID */}
+      <TrustGrid />
+
       {/* Categories */}
       <section className="mx-auto max-w-7xl mt-24">
         <SectionHeader eyebrow="What people ask" title="Every kind of seva, one assistant" sub="From a single button to repair a powerloom, to catering for a wedding — Seva AI maps it instantly." />
