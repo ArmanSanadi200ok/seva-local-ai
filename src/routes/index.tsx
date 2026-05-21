@@ -6,6 +6,8 @@ import {
   ChevronDown, CheckCircle2, Phone, Building2,
 } from "lucide-react";
 import { Layout } from "@/components/Layout";
+import { LiveAIDemo } from "@/components/LiveAIDemo";
+import { IndianEcosystem, TrustGrid } from "@/components/IndianEcosystem";
 import { useState } from "react";
 
 export const Route = createFileRoute("/")({
