@@ -75,10 +75,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "theme-color", content: "#4f46e5" },
       { title: "Ichalkaranji Seva — AI Hyperlocal Concierge" },
       { name: "description", content: "AI-powered local services for Tier-2 & Tier-3 India." },
-      { property: "og:title", content: "Ichalkaranji Seva" },
-      { property: "og:description", content: "Speak. Type. Get matched. AI that truly understands local India." },
+      { property: "og:title", content: "Ichalkaranji Seva — AI Hyperlocal Concierge" },
+      { property: "og:description", content: "AI-powered local services for Tier-2 & Tier-3 India." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "Ichalkaranji Seva — AI Hyperlocal Concierge" },
+      { name: "twitter:description", content: "AI-powered local services for Tier-2 & Tier-3 India." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/e19c5dfd-896e-4dd9-9223-839ee636e4a4" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/e19c5dfd-896e-4dd9-9223-839ee636e4a4" },
     ],
     links: [
       {
