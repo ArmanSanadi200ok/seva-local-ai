@@ -8,6 +8,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 
+import { SplashScreen } from "@/components/SplashScreen";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
@@ -116,7 +117,9 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      <SplashScreen>
+        <Outlet />
+      </SplashScreen>
     </QueryClientProvider>
   );
 }
