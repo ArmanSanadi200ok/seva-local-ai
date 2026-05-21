@@ -8,6 +8,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 
+import { SplashScreen } from "@/components/SplashScreen";
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
