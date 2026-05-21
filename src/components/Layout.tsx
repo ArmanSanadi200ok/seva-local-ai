@@ -1,6 +1,7 @@
 import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
 import { WhatsAppFloat } from "./WhatsAppFloat";
+import { SystemStatusBar } from "./SystemStatusBar";
 
 export function Layout({ children, bare = false }: { children: React.ReactNode; bare?: boolean }) {
   return (
@@ -11,6 +12,7 @@ export function Layout({ children, bare = false }: { children: React.ReactNode; 
       <main className="px-4">{children}</main>
       {!bare && <Footer />}
       <WhatsAppFloat />
+      <SystemStatusBar />
     </div>
   );
 }
