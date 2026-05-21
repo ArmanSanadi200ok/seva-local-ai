@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { parseTaskAI, matchVendors, INITIAL_REQUESTS, QUICK_MESSAGES, fakeDelay, type ParsedTask, type Vendor, type SevaRequest, type RequestStatus } from "@/lib/sevaData";
+import { LiveActivityFeed } from "@/components/LiveActivityFeed";
+import { systemBus } from "@/lib/systemEvents";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Ichalkaranji Seva" }] }),
@@ -52,11 +54,13 @@ function Dashboard() {
     setParsed(null);
     setMatches([]);
     setStage("understanding");
+    systemBus.emit({ kind: "request.received", title: "New request received", detail: text.slice(0, 60), level: "info" });
     await fakeDelay(null, 700);
     setStage("structuring");
     await fakeDelay(null, 700);
     const p = parseTaskAI(text);
     setParsed(p);
+    systemBus.emit({ kind: "ai.parsed", title: "AI parsed task", detail: `${p.category} · ${p.location} · ${p.confidence}%`, level: "success", latencyMs: 380 });
     setStage("searching");
     await fakeDelay(null, 800);
     setStage("ranking");
@@ -64,8 +68,9 @@ function Dashboard() {
     await fakeDelay(null, 500);
     setMatches(m.slice(0, 3));
     setStage("done");
+    systemBus.emit({ kind: "vendor.matched", title: `${m.length} vendors matched`, detail: `top ${m[0]?.name} · ${m[0]?.matchScore}%`, level: "success" });
+    systemBus.emit({ kind: "whatsapp.sent", title: "WhatsApp inquiry sent", detail: `to ${m.slice(0,3).map(v=>v.name.split(" ")[0]).join(", ")}`, level: "info" });
 
-    // append a new active request
     setRequests((rs) => [
       { id: `r${Date.now()}`, title: text, category: p.category, status: "active", createdAt: "just now", area: p.location, matchedVendors: m.length, urgency: p.urgency_level, inquiryStatus: "sent" },
       ...rs,
