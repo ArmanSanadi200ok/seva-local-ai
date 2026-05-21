@@ -40,7 +40,37 @@ export function Footer() {
             </ul>
           </div>
         </div>
-        <div className="mt-10 pt-6 border-t border-border flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
+        <div className="mt-10 flex items-center justify-center">
+          <div className="flex items-center gap-3 rounded-full glass px-5 py-2.5 border border-white/10">
+            <span className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
+              Built by
+            </span>
+            <span className="text-xs font-semibold text-foreground">
+              Arman Sanadi
+            </span>
+            <span className="mx-1 h-3 w-px bg-border" />
+            <a
+              href="https://github.com/armansanadi200ok"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="grid place-items-center h-7 w-7 rounded-full hover:bg-secondary transition-colors"
+              aria-label="GitHub"
+            >
+              <Github className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors" />
+            </a>
+            <a
+              href="https://www.linkedin.com/in/armansanadi"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="grid place-items-center h-7 w-7 rounded-full hover:bg-secondary transition-colors"
+              aria-label="LinkedIn"
+            >
+              <Linkedin className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground transition-colors" />
+            </a>
+          </div>
+        </div>
+
+        <div className="mt-6 pt-6 border-t border-border flex flex-col md:flex-row items-center justify-between gap-3 text-xs text-muted-foreground">
           <div>© 2026 Ichalkaranji Seva · Made for Real India 🇮🇳</div>
           <div>Verified Local Vendors · Built in Maharashtra</div>
         </div>
