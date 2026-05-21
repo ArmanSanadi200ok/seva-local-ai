@@ -26,7 +26,10 @@ export function LiveActivityFeed({ compact = false }: { compact?: boolean }) {
   const [events, setEvents] = useState<SystemEvent[]>(() => systemBus.list());
   const [, force] = useState(0);
 
-  useEffect(() => systemBus.subscribe(setEvents), []);
+  useEffect(() => {
+    const unsub = systemBus.subscribe(setEvents);
+    return () => { unsub(); };
+  }, []);
   useEffect(() => {
     const i = setInterval(() => force((n) => n + 1), 15_000);
     return () => clearInterval(i);
