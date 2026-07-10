@@ -1,18 +1,30 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Sparkles, Menu, X } from "lucide-react";
-import { useState } from "react";
-
-const links = [
-  { to: "/", label: "Home" },
-  { to: "/dashboard", label: "Dashboard" },
-  { to: "/vendors", label: "Vendors" },
-  { to: "/vendor-panel", label: "For Vendors" },
-  { to: "/admin", label: "Admin" },
-] as const;
+import { useState, useEffect } from "react";
+import { getMe, type CustomerProfile } from "@/lib/api/profile";
+import { getAccessToken } from "@/lib/api/auth";
 
 export function Navbar() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
+  const [profile, setProfile] = useState<CustomerProfile | null>(null);
+
+  useEffect(() => {
+    if (getAccessToken()) {
+      getMe().then(setProfile).catch(() => {});
+    }
+  }, [path]);
+
+  const isAdmin = profile?.role === "admin" || profile?.is_superuser || profile?.is_staff;
+  const isVendor = profile?.role === "vendor";
+
+  const links = [
+    { to: "/", label: "Home" },
+    { to: "/dashboard", label: "Dashboard" },
+    (!isVendor || isAdmin) ? { to: "/vendors", label: "Vendors" } : null,
+    { to: "/vendor-panel", label: "For Vendors" },
+    isAdmin ? { to: "/admin", label: "Admin" } : null,
+  ].filter(Boolean) as { to: string; label: string }[];
 
   return (
     <header className="sticky top-0 z-50 px-4 pt-4">
@@ -31,7 +43,7 @@ export function Navbar() {
 
           <nav className="hidden md:flex items-center gap-1">
             {links.map((l) => {
-              const active = path === l.to;
+              const active = path.startsWith(l.to) && (l.to !== "/" || path === "/");
               return (
                 <Link
                   key={l.to}

@@ -9,6 +9,7 @@ import { Layout } from "@/components/Layout";
 import { LiveAIDemo } from "@/components/LiveAIDemo";
 import { IndianEcosystem, TrustGrid } from "@/components/IndianEcosystem";
 import { useState } from "react";
+import { createTask } from "@/services/api";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -40,7 +41,32 @@ const categories = [
 
 function Landing() {
   const [active, setActive] = useState(0);
+  const [taskInput, setTaskInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<any>(null);
   const example = taskExamples[active];
+  const handleSubmit = async () => {
+    console.log("BUTTON CLICKED");
+    if (!taskInput.trim()) return;
+
+    try {
+      setLoading(true);
+
+      const response = await createTask({
+        description: taskInput,
+      });
+
+      console.log("AI Response:", response);
+
+      setResult(response);
+      setTaskInput("");
+    } catch (error) {
+      console.error(error);
+      alert("Failed to process request");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <Layout>
@@ -122,9 +148,30 @@ function Landing() {
                 <button className="h-9 w-9 rounded-xl bg-grad-primary grid place-items-center text-white animate-pulse-ring">
                   <Mic className="h-4 w-4" />
                 </button>
-                <input placeholder="Type in हिंदी, मराठी or English…" className="flex-1 bg-transparent text-sm outline-none" />
-                <button className="h-9 w-9 rounded-xl bg-foreground text-background grid place-items-center"><Send className="h-4 w-4" /></button>
+                <input
+                  value={taskInput}
+                  onChange={(e) => setTaskInput(e.target.value)}
+                  placeholder="Type in हिंदी, मराठी or English…"
+                  className="flex-1 bg-transparent text-sm outline-none"
+                />
+                <button
+                  onClick={handleSubmit}
+                  disabled={loading}
+                  className="h-9 w-9 rounded-xl bg-foreground text-background grid place-items-center">
+                    <Send className="h-4 w-4" />
+                </button>
               </div>
+              {result && (
+                <div className="mt-4 glass rounded-2xl p-4 text-sm">
+                  <div className="font-semibold mb-2">
+                    AI Parsed Task
+                  </div>
+
+                  <pre className="text-xs overflow-auto">
+                    {JSON.stringify(result, null, 2)}
+                  </pre>
+                </div>
+              )}
             </div>
 
             {/* floating chip */}

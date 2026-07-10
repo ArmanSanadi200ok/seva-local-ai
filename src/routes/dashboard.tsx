@@ -7,7 +7,8 @@ import {
   ShieldCheck, MessageCircle, Phone, Loader2, Code2, Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { parseTaskAI, matchVendors, INITIAL_REQUESTS, QUICK_MESSAGES, fakeDelay, type ParsedTask, type Vendor, type SevaRequest, type RequestStatus } from "@/lib/sevaData";
+import { QUICK_MESSAGES, type ParsedTask, type Vendor, type SevaRequest, type RequestStatus } from "@/lib/sevaData";
+import { getTasks, createTask, mapTaskDetailToParsed, mapBackendTaskToSevaRequest, login, getMe, getTaskMatchesWithRetry, mapBackendMatchToVendor, getAccessToken } from "@/lib/api";
 import { LiveActivityFeed } from "@/components/LiveActivityFeed";
 import { systemBus } from "@/lib/systemEvents";
 
@@ -37,44 +38,95 @@ function Dashboard() {
   const [stage, setStage] = useState<Stage>("idle");
   const [parsed, setParsed] = useState<ParsedTask | null>(null);
   const [matches, setMatches] = useState<Vendor[]>([]);
-  const [requests, setRequests] = useState<SevaRequest[]>(INITIAL_REQUESTS);
+  const [requests, setRequests] = useState<SevaRequest[]>([]);
+  const [authError, setAuthError] = useState("");
+  const [needsLogin, setNeedsLogin] = useState(false);
+  const [profile, setProfile] = useState<any>(null);
+  const [loginPhone, setLoginPhone] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Simulated live feed: occasionally bump request status.
+  const loadDashboardData = async () => {
+    try {
+      const [profData, tasksData] = await Promise.all([getMe(), getTasks()]);
+      setProfile(profData);
+      setRequests(tasksData.map(mapBackendTaskToSevaRequest));
+      setNeedsLogin(false);
+      setAuthError("");
+    } catch (err: any) {
+      if (err.message.includes("Unauthorized")) {
+        setNeedsLogin(true);
+      } else {
+        setAuthError(err.message);
+      }
+    }
+  };
+
   useEffect(() => {
-    const i = setInterval(() => {
-      setRequests((rs) => rs.map((r) =>
-        r.id === "r1" && r.matchedVendors < 6 ? { ...r, matchedVendors: r.matchedVendors + 1 } : r
-      ));
-    }, 8000);
-    return () => clearInterval(i);
+    const token = getAccessToken();
+    if (!token) {
+      setNeedsLogin(true);
+      return;
+    }
+    loadDashboardData();
   }, []);
+
+  const handleLogin = async () => {
+    if (!loginPhone || !loginPassword) return;
+    setIsLoggingIn(true);
+    setAuthError("");
+    try {
+      const data = await login(loginPhone, loginPassword);
+      localStorage.setItem("seva_access_token", data.access);
+      await loadDashboardData();
+    } catch (err: any) {
+      setAuthError(err.message);
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
 
   const submit = async () => {
     if (!text.trim() || stage !== "idle" && stage !== "done") return;
     setParsed(null);
     setMatches([]);
+    setAuthError("");
     setStage("understanding");
     systemBus.emit({ kind: "request.received", title: "New request received", detail: text.slice(0, 60), level: "info" });
-    await fakeDelay(null, 700);
-    setStage("structuring");
-    await fakeDelay(null, 700);
-    const p = parseTaskAI(text);
-    setParsed(p);
-    systemBus.emit({ kind: "ai.parsed", title: "AI parsed task", detail: `${p.category} · ${p.location} · ${p.confidence}%`, level: "success", latencyMs: 380 });
-    setStage("searching");
-    await fakeDelay(null, 800);
-    setStage("ranking");
-    const m = matchVendors(p);
-    await fakeDelay(null, 500);
-    setMatches(m.slice(0, 3));
-    setStage("done");
-    systemBus.emit({ kind: "vendor.matched", title: `${m.length} vendors matched`, detail: `top ${m[0]?.name} · ${m[0]?.matchScore}%`, level: "success" });
-    systemBus.emit({ kind: "whatsapp.sent", title: "WhatsApp inquiry sent", detail: `to ${m.slice(0,3).map(v=>v.name.split(" ")[0]).join(", ")}`, level: "info" });
-
-    setRequests((rs) => [
-      { id: `r${Date.now()}`, title: text, category: p.category, status: "active", createdAt: "just now", area: p.location, matchedVendors: m.length, urgency: p.urgency_level, inquiryStatus: "sent" },
-      ...rs,
-    ]);
+    
+    try {
+      setStage("structuring");
+      const created = await createTask({ raw_user_input: text });
+      const p = mapTaskDetailToParsed(created);
+      setParsed(p);
+      systemBus.emit({ kind: "ai.parsed", title: "AI parsed task", detail: `${p.category} · ${p.location} · ${p.confidence}%`, level: "success" });
+      
+      setStage("searching");
+      setStage("ranking");
+      
+      let m: Vendor[] = [];
+      try {
+        const matchesData = await getTaskMatchesWithRetry(created.id);
+        if (Array.isArray(matchesData) && matchesData.length > 0) {
+          m = matchesData.map(mapBackendMatchToVendor);
+        }
+      } catch (err) {
+        console.error("Match fetch failed:", err);
+      }
+      
+      setMatches(m.slice(0, 3));
+      setStage("done");
+      
+      if (m.length > 0) {
+        systemBus.emit({ kind: "vendor.matched", title: `${m.length} vendors matched`, detail: `top ${m[0]?.name} · ${m[0]?.matchScore}%`, level: "success" });
+        systemBus.emit({ kind: "whatsapp.sent", title: "WhatsApp inquiry sent", detail: `to ${m.slice(0,3).map(v=>v.name.split(" ")[0]).join(", ")}`, level: "info" });
+      }
+      
+      setRequests((rs) => [mapBackendTaskToSevaRequest(created), ...rs]);
+    } catch (err: any) {
+      setAuthError(err?.message || "Failed to process task. Please try again.");
+      setStage("idle");
+    }
   };
 
   const stats = useMemo(() => {
@@ -88,6 +140,7 @@ function Dashboard() {
   }, [requests]);
 
   const processing = stage !== "idle" && stage !== "done";
+  const displayName = profile?.name || "Customer";
 
   return (
     <Layout>
@@ -95,8 +148,8 @@ function Dashboard() {
         {/* Header */}
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <div className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-emerald animate-pulse" /> Live · नमस्कार, Rohan
+            <div className="text-xs tracking-widest text-muted-foreground flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-emerald animate-pulse" /> <span className="uppercase">Live</span> · नमस्कार, {displayName}
             </div>
             <h1 className="mt-1 text-3xl md:text-4xl font-bold">What seva do you need today?</h1>
           </div>
@@ -107,7 +160,7 @@ function Dashboard() {
               <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-emerald" />
             </button>
             <div className="h-10 px-3 rounded-xl bg-grad-primary text-white flex items-center gap-2 text-sm">
-              <div className="h-6 w-6 rounded-full bg-white/20 grid place-items-center text-xs font-bold">R</div> Rohan
+              <div className="h-6 w-6 rounded-full bg-white/20 grid place-items-center text-xs font-bold">{displayName[0].toUpperCase()}</div> {displayName}
             </div>
           </div>
         </div>
@@ -129,6 +182,25 @@ function Dashboard() {
 
         <div className="mt-6 grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
+            {needsLogin && (
+              <div className="glass rounded-3xl p-6 mb-6">
+                <h3 className="font-semibold text-lg mb-2">Login Required</h3>
+                <p className="text-sm text-muted-foreground mb-4">Please log in to view and create tasks.</p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <input type="text" placeholder="Phone Number (+91...)" className="bg-background/60 border border-border rounded-xl px-4 py-2 text-sm flex-1" value={loginPhone} onChange={e => setLoginPhone(e.target.value)} />
+                  <input type="password" placeholder="Password" className="bg-background/60 border border-border rounded-xl px-4 py-2 text-sm flex-1" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} />
+                  <button onClick={handleLogin} disabled={isLoggingIn} className="bg-grad-primary text-white rounded-xl px-6 py-2 text-sm font-medium shadow-glow disabled:opacity-50 min-w-[120px]">
+                    {isLoggingIn ? "Wait..." : "Login"}
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {authError && (
+              <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-xl border border-destructive/20">
+                {authError}
+              </div>
+            )}
             {/* AI Task Input */}
             <div className="glass rounded-3xl p-6 relative overflow-hidden">
               <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-grad-primary opacity-20 blur-3xl" />
@@ -180,52 +252,59 @@ function Dashboard() {
                 )}
               </AnimatePresence>
 
-              {/* Structured JSON output */}
+              {/* Submission Result Flow */}
               {parsed && stage === "done" && (
-                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mt-5 grid md:grid-cols-2 gap-4">
-                  <div className="glass rounded-2xl p-5">
-                    <div className="flex items-center justify-between text-xs mb-3">
-                      <span className="flex items-center gap-1.5 text-muted-foreground"><Sparkles className="h-3 w-3 text-violet" /> Structured task</span>
-                      <span className="px-2 py-0.5 rounded-full bg-emerald/15 text-emerald font-medium">{parsed.confidence}% confidence</span>
+                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mt-5 space-y-5">
+                  {/* Row 1: Structured Task + AI Summary */}
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="glass rounded-2xl p-5">
+                      <div className="flex items-center justify-between text-xs mb-3">
+                        <span className="flex items-center gap-1.5 text-muted-foreground"><Sparkles className="h-3 w-3 text-violet" /> Structured task</span>
+                        <span className="px-2 py-0.5 rounded-full bg-emerald/15 text-emerald font-medium">{parsed.confidence}% confidence</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Field label="Category" v={parsed.category} />
+                        <Field label="Service" v={parsed.service_type} />
+                        <Field label="Location" v={parsed.location} />
+                        <Field label="Urgency" v={parsed.urgency_level} tone={parsed.urgency_level === "high" ? "danger" : "info"} />
+                        <Field label="Budget" v={parsed.budget_range} />
+                        <Field label="ETA" v={parsed.estimated_time} />
+                      </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Field label="Category" v={parsed.category} />
-                      <Field label="Service" v={parsed.service_type} />
-                      <Field label="Location" v={parsed.location} />
-                      <Field label="Urgency" v={parsed.urgency_level} tone={parsed.urgency_level === "high" ? "danger" : "info"} />
-                      <Field label="Budget" v={parsed.budget_range} />
-                      <Field label="ETA" v={parsed.estimated_time} />
+
+                    <div className="rounded-2xl p-5 bg-primary/10 text-primary-foreground text-sm flex flex-col justify-center gap-2 border border-primary/20">
+                      <div className="flex items-center gap-2 mb-1 text-[10px] uppercase tracking-widest text-primary/70">
+                        <MessageCircle className="h-3 w-3" /> AI Summary
+                      </div>
+                      <p>
+                        I understood your request for <strong>{parsed.service_type}</strong> near <strong>{parsed.location}</strong>.
+                      </p>
+                      <p>
+                        Estimated urgency: <strong>{parsed.urgency_level}</strong>. {matches.length > 0 ? "I've found matching local vendors for you below." : "Looking for matching local vendors..."}
+                      </p>
                     </div>
                   </div>
 
-                  {/* JSON view */}
-                  <div className="rounded-2xl p-5 bg-foreground text-background font-mono text-[11px] overflow-auto">
-                    <div className="flex items-center gap-2 text-background/60 mb-2 text-[10px] uppercase tracking-widest">
-                      <Code2 className="h-3 w-3" /> seva.ai/parse → 200 OK
+                  {/* Row 2: Matched vendors mini */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="text-sm font-medium flex items-center gap-2">
+                        <Zap className="h-4 w-4 text-saffron" /> 
+                        {matches.length > 0 ? `${matches.length} vendors matched · avg response ${Math.round(matches.reduce((a,b)=>a+(b.responseMin||15),0)/matches.length)} min` : "Vendor Matches"}
+                      </div>
+                      <Link to={`/vendors?query=${encodeURIComponent(parsed?.service_type || '')}&category=${encodeURIComponent(parsed?.category || '')}`} className="text-xs px-3 py-1.5 rounded-lg bg-grad-primary text-white flex items-center gap-1">
+                        View all vendors <ChevronRight className="h-3 w-3" />
+                      </Link>
                     </div>
-{`{
-  "service_type": "${parsed.service_type}",
-  "category": "${parsed.category}",
-  "location": "${parsed.location}",
-  "urgency_level": "${parsed.urgency_level}",
-  "budget_range": "${parsed.budget_range}",
-  "estimated_time": "${parsed.estimated_time}",
-  "language": "${parsed.language}",
-  "confidence": ${parsed.confidence}
-}`}
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Matched vendors mini */}
-              {matches.length > 0 && stage === "done" && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-sm font-medium flex items-center gap-2"><Zap className="h-4 w-4 text-saffron" /> {matches.length} vendors matched · avg response {Math.round(matches.reduce((a,b)=>a+b.responseMin,0)/matches.length)} min</div>
-                    <Link to="/vendors" className="text-xs px-3 py-1.5 rounded-lg bg-grad-primary text-white flex items-center gap-1">See all <ChevronRight className="h-3 w-3" /></Link>
-                  </div>
-                  <div className="grid sm:grid-cols-3 gap-3">
-                    {matches.map((v, i) => <MatchedVendor key={v.id} v={v} best={i === 0} />)}
+                    {matches.length > 0 ? (
+                      <div className="grid sm:grid-cols-3 gap-3">
+                        {matches.map((v, i) => <MatchedVendor key={v.id} v={v} best={i === 0} />)}
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-xl border border-border bg-background/40 text-center text-sm text-muted-foreground">
+                        No verified vendors matched yet. Try broadening the request or view all vendors.
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               )}
@@ -265,6 +344,19 @@ function Dashboard() {
           {/* Sidebar */}
           <aside className="space-y-6">
             <LiveActivityFeed compact />
+            <div className="glass rounded-3xl p-6">
+              <div className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Customer Profile</div>
+              {profile ? (
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-center gap-2"><div className="w-5 text-muted-foreground"><Sparkles className="h-4 w-4" /></div> <span className="font-medium">{displayName}</span></div>
+                  <div className="flex items-center gap-2"><div className="w-5 text-muted-foreground"><Phone className="h-4 w-4" /></div> <span>{profile.phone}</span></div>
+                  <div className="flex items-center gap-2"><div className="w-5 text-muted-foreground"><MapPin className="h-4 w-4" /></div> <span>{profile.area}</span></div>
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground">Please login to view your profile.</div>
+              )}
+            </div>
+
             <div className="glass rounded-3xl p-6">
               <div className="flex items-center gap-2">
                 <div className="h-10 w-10 rounded-xl bg-grad-primary grid place-items-center text-white">
@@ -356,6 +448,17 @@ function stageOrder(s: Stage) {
 }
 
 function MatchedVendor({ v, best }: { v: Vendor; best: boolean }) {
+  const handleContact = () => {
+    if (v.whatsapp) {
+      window.open(`https://wa.me/${v.whatsapp}`, "_blank");
+    } else if (v.phone) {
+      window.open(`tel:${v.phone}`);
+    }
+  };
+
+  const contactIcon = v.whatsapp ? <MessageCircle className="h-3.5 w-3.5" /> : (v.phone ? <Phone className="h-3.5 w-3.5" /> : null);
+  const contactDisabled = !v.whatsapp && !v.phone;
+
   return (
     <div className={`relative rounded-2xl p-3 border ${best ? "border-violet/40 bg-violet/5" : "border-border bg-background/40"}`}>
       {best && <span className="absolute -top-2 left-3 text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full bg-grad-primary text-white shadow-glow">Best match</span>}
@@ -368,7 +471,13 @@ function MatchedVendor({ v, best }: { v: Vendor; best: boolean }) {
       </div>
       <div className="mt-2 flex items-center justify-between">
         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald/15 text-emerald">{v.matchScore}% match</span>
-        <button className="h-7 w-7 rounded-lg bg-emerald text-white grid place-items-center"><MessageCircle className="h-3.5 w-3.5" /></button>
+        <button 
+          onClick={handleContact}
+          disabled={contactDisabled}
+          className={`h-7 w-7 rounded-lg grid place-items-center ${contactDisabled ? "bg-secondary text-muted-foreground" : "bg-emerald text-white"}`}
+        >
+          {contactIcon || <XCircle className="h-3 w-3" />}
+        </button>
       </div>
     </div>
   );
