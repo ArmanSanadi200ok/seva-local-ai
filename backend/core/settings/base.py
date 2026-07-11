@@ -6,7 +6,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
-from decouple import Csv
+from decouple import config, Csv
 from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
