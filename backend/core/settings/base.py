@@ -6,12 +6,11 @@ from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
-from decouple import Csv, Config, RepositoryEnv
+from decouple import Csv
 from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-config = Config(RepositoryEnv(BASE_DIR / '.env'))
 
 
 def _non_empty(key, default=''):
