@@ -180,6 +180,13 @@ CORS_ALLOWED_ORIGINS = config(
     cast=Csv(),
 )
 
+CSRF_TRUSTED_ORIGINS = config(
+    'CSRF_TRUSTED_ORIGINS',
+    default='http://localhost:3000,http://127.0.0.1:3000',
+    cast=Csv(),
+)
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 # AI provider: stub | gemini
 AI_PROVIDER = _non_empty('AI_PROVIDER', 'stub')
 GEMINI_API_KEY = _non_empty('GEMINI_API_KEY', '')

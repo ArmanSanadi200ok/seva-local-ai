@@ -1,5 +1,6 @@
-const API_BASE_URL = "http://127.0.0.1:8000/api";
+import { API_BASE } from "../lib/api/client";
 
+const API_BASE_URL = `${API_BASE}/api`;
 export async function createTask(taskData: any) {
   try {
     const response = await fetch(`${API_BASE_URL}/tasks/`, {
